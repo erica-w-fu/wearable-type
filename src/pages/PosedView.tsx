@@ -7,7 +7,7 @@ export default function PosedView() {
   useEffect(() => {
     let cancelled = false;
     setLoadError(null);
-    fetch('/posed/manifest.json')
+    fetch(`${import.meta.env.BASE_URL}posed/manifest.json`)
       .then((res) => {
         if (!res.ok) throw new Error(`manifest ${res.status}`);
         return res.json();
@@ -41,7 +41,7 @@ export default function PosedView() {
           <figure key={name} className="posedCell">
             <img
               className="posedImg"
-              src={`/posed/${encodeURIComponent(name)}`}
+              src={`${import.meta.env.BASE_URL}posed/${encodeURIComponent(name)}`}
               alt={name}
               loading="lazy"
               draggable={false}

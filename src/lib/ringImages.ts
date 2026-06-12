@@ -6,7 +6,7 @@ const IMAGE_EXT = '.jpg';
 export function ringImageUrl(letter: string, side: RingSide = 'face'): string | null {
   const normalized = letter.toUpperCase();
   if (!/^[A-Z]$/.test(normalized)) return null;
-  return `/lettersToned/${normalized}/${side}${IMAGE_EXT}`;
+  return `${import.meta.env.BASE_URL}lettersToned/${normalized}/${side}${IMAGE_EXT}`;
 }
 
 export function ringSideAtIndex(index: number): RingSide {
