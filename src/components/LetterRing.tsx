@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { DESKTOP_BREAKPOINT } from '../lib/gridColumns';
 import {
+  GRID_DRAG_COMMIT_SLOP_PX,
+  GRID_DRAG_COMMIT_SLOP_PX_MOBILE,
   GRID_EDGE_STRIP_RATIO,
   GRID_EDGE_STRIP_RATIO_MOBILE,
   horizontalStrip,
@@ -47,12 +49,18 @@ export default function LetterRing({
 }: Props) {
   const [failedSides, setFailedSides] = useState<Set<RingSide>>(() => new Set());
   const [gridStrip, setGridStrip] = useState<GridDragStrip>('mid');
-  const [gridPointerDown, setGridPointerDown] = useState(false);
+  const [gridDragCommitted, setGridDragCommitted] = useState(false);
   const [rotationStackReady, setRotationStackReady] = useState(loading === 'eager');
   const gridDragActiveRef = useRef(false);
+  const pointerSessionRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+  } | null>(null);
 
   const isDesktop = useMediaQuery(DESKTOP_BREAKPOINT);
   const edgeStripRatio = isDesktop ? GRID_EDGE_STRIP_RATIO : GRID_EDGE_STRIP_RATIO_MOBILE;
+  const dragCommitSlop = isDesktop ? GRID_DRAG_COMMIT_SLOP_PX : GRID_DRAG_COMMIT_SLOP_PX_MOBILE;
 
   const isDemo = demoStrip !== undefined;
   const activeStrip = isDemo ? demoStrip : gridStrip;
@@ -75,26 +83,39 @@ export default function LetterRing({
   useEffect(() => {
     if (!isGridVariant) {
       setGridStrip('mid');
-      setGridPointerDown(false);
+      setGridDragCommitted(false);
       gridDragActiveRef.current = false;
+      pointerSessionRef.current = null;
     }
   }, [isGridVariant]);
 
-  useEffect(() => {
-    if (!isGridVariant || !gridPointerDown) return;
-    const scrollY = window.scrollY;
-    document.body.style.position = 'fixed';
-    document.body.style.top = `-${scrollY}px`;
-    document.body.style.width = '100%';
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.position = '';
-      document.body.style.top = '';
-      document.body.style.width = '';
-      document.body.style.overflow = '';
-      window.scrollTo(0, scrollY);
-    };
-  }, [isGridVariant, gridPointerDown]);
+  const resetGridDrag = useCallback((target: HTMLDivElement | null, pointerId?: number) => {
+    gridDragActiveRef.current = false;
+    pointerSessionRef.current = null;
+    setGridStrip('mid');
+    setGridDragCommitted(false);
+    if (target != null && pointerId != null) {
+      try {
+        target.releasePointerCapture(pointerId);
+      } catch {
+        /* already released */
+      }
+    }
+  }, []);
+
+  const commitGridDrag = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (gridDragActiveRef.current) return;
+      gridDragActiveRef.current = true;
+      setGridDragCommitted(true);
+      e.preventDefault();
+      e.currentTarget.setPointerCapture(e.pointerId);
+      setGridStrip(
+        horizontalStrip(e.clientX, e.currentTarget.getBoundingClientRect(), edgeStripRatio),
+      );
+    },
+    [edgeStripRatio],
+  );
 
   const markSideFailed = useCallback((ringSide: RingSide) => {
     setFailedSides((prev) => {
@@ -107,25 +128,50 @@ export default function LetterRing({
 
   const onPointerMoveGrid = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
-      if (!isGridVariant || isDemo || !gridDragActiveRef.current) return;
+      if (!isGridVariant || isDemo) return;
+
+      const session = pointerSessionRef.current;
+      if (!session || session.pointerId !== e.pointerId) return;
+
+      const dx = e.clientX - session.startX;
+      const dy = e.clientY - session.startY;
+
+      if (!gridDragActiveRef.current) {
+        const absDx = Math.abs(dx);
+        const absDy = Math.abs(dy);
+        if (absDy > absDx && absDy >= dragCommitSlop) {
+          resetGridDrag(null);
+          return;
+        }
+        if (absDx > absDy && absDx >= dragCommitSlop) {
+          commitGridDrag(e);
+        }
+        return;
+      }
+
       e.preventDefault();
       setGridStrip(
         horizontalStrip(e.clientX, e.currentTarget.getBoundingClientRect(), edgeStripRatio),
       );
     },
-    [edgeStripRatio, isGridVariant, isDemo],
+    [commitGridDrag, dragCommitSlop, edgeStripRatio, isGridVariant, isDemo, resetGridDrag],
   );
 
   const onPointerDownGrid = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
       if (!isGridVariant || isDemo) return;
-      e.preventDefault();
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+
       prefetchRingSides(normalized, [...RING_SIDES]);
       setRotationStackReady(true);
-      gridDragActiveRef.current = true;
+      pointerSessionRef.current = {
+        pointerId: e.pointerId,
+        startX: e.clientX,
+        startY: e.clientY,
+      };
+      gridDragActiveRef.current = false;
+      setGridDragCommitted(false);
       setGridStrip('mid');
-      setGridPointerDown(true);
-      e.currentTarget.setPointerCapture(e.pointerId);
     },
     [isGridVariant, isDemo, normalized],
   );
@@ -133,24 +179,20 @@ export default function LetterRing({
   const endGridGrab = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
       if (!isGridVariant || isDemo) return;
-      gridDragActiveRef.current = false;
-      setGridStrip('mid');
-      setGridPointerDown(false);
-      try {
-        e.currentTarget.releasePointerCapture(e.pointerId);
-      } catch {
-        /* already released */
-      }
+      const session = pointerSessionRef.current;
+      if (!session || session.pointerId !== e.pointerId) return;
+      resetGridDrag(e.currentTarget, e.pointerId);
     },
-    [isGridVariant, isDemo],
+    [isGridVariant, isDemo, resetGridDrag],
   );
 
-  const onLostPointerCaptureGrid = useCallback(() => {
-    if (!isGridVariant || isDemo) return;
-    gridDragActiveRef.current = false;
-    setGridStrip('mid');
-    setGridPointerDown(false);
-  }, [isGridVariant, isDemo]);
+  const onLostPointerCaptureGrid = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (!isGridVariant || isDemo) return;
+      resetGridDrag(e.currentTarget);
+    },
+    [isGridVariant, isDemo, resetGridDrag],
+  );
 
   const showImage = isGridVariant
     ? isAlphabetLetter(normalized) && hasLoadableRingImage(normalized, failedSides)
@@ -158,7 +200,7 @@ export default function LetterRing({
 
   const isPlaceholder = normalized !== '' && !showImage;
   const isGrabbing =
-    isGridVariant && (isDemo ? activeStrip !== 'mid' : gridPointerDown);
+    isGridVariant && (isDemo ? activeStrip !== 'mid' : gridDragCommitted);
 
   const style = useMemo(() => {
     if (!sizePx) return undefined;

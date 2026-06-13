@@ -29,8 +29,11 @@ export function stripToTiltZone(strip: GridDragStrip): RingSide {
 
 /** Outer fraction of tile width (each side) that shows cw/ccw while dragging. */
 export const GRID_EDGE_STRIP_RATIO = 0.4;
-/** Wider edge zones on narrow viewports — less horizontal drag to turn. */
-export const GRID_EDGE_STRIP_RATIO_MOBILE = 0.48;
+/** Slightly wider edge zones on narrow viewports. */
+export const GRID_EDGE_STRIP_RATIO_MOBILE = 0.5;
+/** Pointer must move this far horizontally before ring drag takes over scrolling. */
+export const GRID_DRAG_COMMIT_SLOP_PX = 8;
+export const GRID_DRAG_COMMIT_SLOP_PX_MOBILE = 12;
 
 export function horizontalStrip(
   clientX: number,

@@ -173,11 +173,11 @@ body {
 
 @media (max-width: 699px) {
   .gridDemoCursor[data-strip='left'] {
-    left: 24%;
+    left: 25%;
   }
 
   .gridDemoCursor[data-strip='right'] {
-    left: 76%;
+    left: 75%;
   }
 }
 
@@ -217,7 +217,7 @@ body {
   border: 0;
   padding: 0;
   background: transparent;
-  touch-action: none;
+  touch-action: pan-y;
 }
 
 .gridStage .gridItem {
@@ -226,7 +226,7 @@ body {
 }
 
 .gridItem--demo {
-  touch-action: none;
+  touch-action: pan-y;
 }
 
 /* Posed reference photos */
@@ -281,7 +281,7 @@ body {
   transform-style: preserve-3d;
   transition: transform 0.14s ease-out;
   cursor: grab;
-  touch-action: none;
+  touch-action: pan-y;
 }
 
 .ringTile--grid.ringTile--grabbing {
