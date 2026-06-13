@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import GridADemoTile from '../components/GridADemoTile';
 import LetterRing from '../components/LetterRing';
+import { gridImagePriority } from '../lib/imageLoading';
 
 export type GridColumns = 1 | 2 | 4;
 
@@ -25,7 +26,7 @@ export default function GridView({ columns }: Props) {
   return (
     <section className="gridStage">
       <div className={`gridContainer ${colClass}`}>
-        {letters.map((letter) =>
+        {letters.map((letter, index) =>
           letter === 'A' ? (
             <GridADemoTile key={letter} />
           ) : (
@@ -35,7 +36,12 @@ export default function GridView({ columns }: Props) {
               className="gridItem"
               aria-label={`Letter ${letter}`}
             >
-              <LetterRing letter={letter} side="face" variant="grid" />
+              <LetterRing
+                letter={letter}
+                side="face"
+                variant="grid"
+                {...gridImagePriority(index, columns)}
+              />
             </button>
           ),
         )}

@@ -27,11 +27,20 @@ export function stripToTiltZone(strip: GridDragStrip): RingSide {
   }
 }
 
-export function horizontalStrip(clientX: number, rect: DOMRectReadOnly): GridDragStrip {
+/** Outer fraction of tile width (each side) that shows cw/ccw while dragging. */
+export const GRID_EDGE_STRIP_RATIO = 0.4;
+/** Wider edge zones on narrow viewports — less horizontal drag to turn. */
+export const GRID_EDGE_STRIP_RATIO_MOBILE = 0.48;
+
+export function horizontalStrip(
+  clientX: number,
+  rect: DOMRectReadOnly,
+  edgeRatio: number = GRID_EDGE_STRIP_RATIO,
+): GridDragStrip {
   const x = clientX - rect.left;
   const t = rect.width > 0 ? x / rect.width : 0.5;
-  if (t < 0.25) return 'left';
-  if (t > 0.75) return 'right';
+  if (t < edgeRatio) return 'left';
+  if (t > 1 - edgeRatio) return 'right';
   return 'mid';
 }
 

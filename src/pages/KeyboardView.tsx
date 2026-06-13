@@ -1,20 +1,23 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import LetterRing from '../components/LetterRing';
+import type { ImageLoadPriority } from '../lib/imageLoading';
 
 const ROW1 = ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'] as const;
 const ROW2 = ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'] as const;
 const ROW3 = ['Z', 'X', 'C', 'V', 'B', 'N', 'M'] as const;
 
-function normalizeLetterKey(key: string) {
-  if (!/^[a-zA-Z]$/.test(key)) return null;
-  return key.toUpperCase();
-}
+const KB_ROW_PRIORITY: Record<1 | 2 | 3, ImageLoadPriority> = {
+  1: { loading: 'eager', fetchPriority: 'high' },
+  2: { loading: 'eager', fetchPriority: 'auto' },
+  3: { loading: 'lazy', fetchPriority: 'low' },
+};
 
 export default function KeyboardView() {
   const [word, setWord] = useState('');
   const [compactWord, setCompactWord] = useState(false);
   const wordBarRef = useRef<HTMLDivElement | null>(null);
   const wordCharsRef = useRef<HTMLDivElement | null>(null);
+  const wordInputRef = useRef<HTMLInputElement | null>(null);
 
   const appendChar = useCallback((ch: string) => {
     setWord((prev) => prev + ch);
@@ -27,35 +30,25 @@ export default function KeyboardView() {
   const insertSpace = useCallback(() => appendChar(' '), [appendChar]);
 
   useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      const key = e.key;
-
-      // Letters
-      const letter = normalizeLetterKey(key);
-      if (letter) {
-        e.preventDefault();
-        appendChar(letter);
-        return;
-      }
-
-      // Backspace
-      if (key === 'Backspace') {
-        e.preventDefault();
-        backspace();
-        return;
-      }
-
-      // Space
-      if (key === ' ' || key === 'Spacebar') {
-        e.preventDefault();
-        insertSpace();
-      }
+    const focusInput = () => wordInputRef.current?.focus();
+    const frame = window.requestAnimationFrame(focusInput);
+    const timeout = window.setTimeout(focusInput, 150);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(timeout);
     };
+  }, []);
 
-    const opts: AddEventListenerOptions = { capture: true };
-    window.addEventListener('keydown', onKeyDown, opts);
-    return () => window.removeEventListener('keydown', onKeyDown, opts);
-  }, [appendChar, backspace, insertSpace]);
+  const keepInputFocused = useCallback((e: React.PointerEvent) => {
+    e.preventDefault();
+  }, []);
+
+  const onKeyClick = (kind: 'letter' | 'backspace' | 'space', payload?: string) => {
+    if (kind === 'letter' && payload) appendChar(payload);
+    if (kind === 'backspace') backspace();
+    if (kind === 'space') insertSpace();
+    wordInputRef.current?.focus();
+  };
 
   const wordChars = useMemo(() => Array.from(word), [word]);
 
@@ -78,27 +71,33 @@ export default function KeyboardView() {
     };
   }, [word]);
 
-  const onKeyClick = (kind: 'letter' | 'backspace' | 'space', payload?: string) => {
-    if (kind === 'letter' && payload) appendChar(payload);
-    if (kind === 'backspace') backspace();
-    if (kind === 'space') insertSpace();
-  };
-
   return (
     <section className="keyboardStage">
       <div className="keyboardLayout">
         <div className="wordAreaWrap">
           <div
             className={`wordBar ${compactWord ? 'wordBar--compact' : ''}`}
-            aria-label="Type your word"
             ref={wordBarRef}
           >
+            <input
+              ref={wordInputRef}
+              type="text"
+              className="wordInput"
+              value={word}
+              onChange={(e) => setWord(e.target.value)}
+              autoCapitalize="characters"
+              autoComplete="off"
+              autoCorrect="off"
+              spellCheck={false}
+              enterKeyHint="done"
+              aria-label="Type your word"
+            />
             <div className="wordChars" aria-hidden="true" ref={wordCharsRef}>
               {wordChars.map((ch, idx) => {
                 if (ch === ' ') {
                   return <span key={idx} className="wordSpace" />;
                 }
-                return <LetterRing key={idx} letter={ch} side="face" variant="word" />;
+                return <LetterRing key={idx} letter={ch} side="face" variant="word" loading="eager" fetchPriority="auto" />;
               })}
               <span className="wordCaretInline" />
             </div>
@@ -112,10 +111,11 @@ export default function KeyboardView() {
                 key={k}
                 type="button"
                 className="kbKey"
+                onPointerDown={keepInputFocused}
                 onClick={() => onKeyClick('letter', k)}
                 aria-label={`Key ${k}`}
               >
-                <LetterRing letter={k} side="face" variant="key" />
+                <LetterRing letter={k} side="face" variant="key" {...KB_ROW_PRIORITY[1]} />
               </button>
             ))}
           </div>
@@ -126,15 +126,17 @@ export default function KeyboardView() {
                 key={k}
                 type="button"
                 className="kbKey"
+                onPointerDown={keepInputFocused}
                 onClick={() => onKeyClick('letter', k)}
                 aria-label={`Key ${k}`}
               >
-                <LetterRing letter={k} side="face" variant="key" />
+                <LetterRing letter={k} side="face" variant="key" {...KB_ROW_PRIORITY[2]} />
               </button>
             ))}
             <button
               type="button"
               className="kbKey kbKey--backspace"
+              onPointerDown={keepInputFocused}
               onClick={() => onKeyClick('backspace')}
               aria-label="Backspace"
             >
@@ -176,10 +178,11 @@ export default function KeyboardView() {
                 key={k}
                 type="button"
                 className="kbKey"
+                onPointerDown={keepInputFocused}
                 onClick={() => onKeyClick('letter', k)}
                 aria-label={`Key ${k}`}
               >
-                <LetterRing letter={k} side="face" variant="key" />
+                <LetterRing letter={k} side="face" variant="key" {...KB_ROW_PRIORITY[3]} />
               </button>
             ))}
           </div>
@@ -188,6 +191,7 @@ export default function KeyboardView() {
             <button
               type="button"
               className="kbSpace"
+              onPointerDown={keepInputFocused}
               onClick={() => onKeyClick('space')}
               aria-label="Space"
             >

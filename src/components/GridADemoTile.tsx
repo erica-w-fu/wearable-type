@@ -6,7 +6,10 @@ import {
   GRID_DEMO_STRIP_SEQUENCE,
   type GridDragStrip,
 } from '../lib/gridRotate';
+import { gridImagePriority } from '../lib/imageLoading';
 import LetterRing from '../components/LetterRing';
+
+const A_TILE_PRIORITY = gridImagePriority(0, 4);
 
 function markDemoSeen() {
   try {
@@ -72,7 +75,7 @@ function DemoCursor({ strip }: { strip: GridDragStrip }) {
 function NormalATile() {
   return (
     <button type="button" className="gridItem" aria-label="Letter A">
-      <LetterRing letter="A" side="face" variant="grid" />
+      <LetterRing letter="A" side="face" variant="grid" {...A_TILE_PRIORITY} />
     </button>
   );
 }
@@ -88,7 +91,7 @@ function GridADemoActive({ onFinish }: { onFinish: () => void }) {
       onPointerDown={onFinish}
     >
       <div className="gridDemoWrap">
-        <LetterRing letter="A" side="face" variant="grid" demoStrip={demoStrip} />
+        <LetterRing letter="A" side="face" variant="grid" demoStrip={demoStrip} {...A_TILE_PRIORITY} />
         <DemoCursor strip={demoStrip} />
       </div>
     </button>

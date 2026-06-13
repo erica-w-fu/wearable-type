@@ -1,8 +1,13 @@
 import React, { useEffect, useState } from 'react';
+import { useMediaQuery } from '../hooks/useMediaQuery';
+import { DESKTOP_BREAKPOINT } from '../lib/gridColumns';
+import { posedImagePriority } from '../lib/imageLoading';
 
 export default function PosedView() {
   const [filenames, setFilenames] = useState<string[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const isDesktop = useMediaQuery(DESKTOP_BREAKPOINT);
+  const posedColumns = isDesktop ? 4 : 2;
 
   useEffect(() => {
     let cancelled = false;
@@ -37,17 +42,22 @@ export default function PosedView() {
   return (
     <section className="posedStage">
       <div className="posedGrid">
-        {filenames.map((name) => (
-          <figure key={name} className="posedCell">
-            <img
-              className="posedImg"
-              src={`${import.meta.env.BASE_URL}posed/${encodeURIComponent(name)}`}
-              alt={name}
-              loading="lazy"
-              draggable={false}
-            />
-          </figure>
-        ))}
+        {filenames.map((name, index) => {
+          const { loading, fetchPriority } = posedImagePriority(index, posedColumns);
+          return (
+            <figure key={name} className="posedCell">
+              <img
+                className="posedImg"
+                src={`${import.meta.env.BASE_URL}posed/${encodeURIComponent(name)}`}
+                alt={name}
+                loading={loading}
+                decoding="async"
+                fetchPriority={fetchPriority}
+                draggable={false}
+              />
+            </figure>
+          );
+        })}
       </div>
       {filenames.length === 0 && (
         <p className="posedEmpty" role="status">
