@@ -1,73 +1,62 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   GRID_DEMO_DELAY_MS,
-  GRID_DEMO_SEEN_KEY,
+  GRID_DEMO_PHASE_SEQUENCE,
   GRID_DEMO_STEP_MS,
-  GRID_DEMO_STRIP_SEQUENCE,
-  type GridDragStrip,
+  type GridDemoPhase,
 } from '../lib/gridRotate';
-import { gridImagePriority } from '../lib/imageLoading';
+import { loadRingSides } from '../lib/imageLoading';
 import LetterRing from '../components/LetterRing';
 
-const A_TILE_PRIORITY = gridImagePriority(0, 4);
+const A_TILE_PRIORITY = { loading: 'eager' as const, fetchPriority: 'high' as const };
 
-function markDemoSeen() {
-  try {
-    window.sessionStorage.setItem(GRID_DEMO_SEEN_KEY, '1');
-  } catch {
-    /* private mode / quota */
-  }
-}
+const DEMO_REST: GridDemoPhase = { cursor: 'mid', image: 'mid', grabbing: false };
 
-function hasSeenDemo() {
-  try {
-    return window.sessionStorage.getItem(GRID_DEMO_SEEN_KEY) === '1';
-  } catch {
-    return false;
-  }
-}
+const OPEN_HAND_URL = `${import.meta.env.BASE_URL}openhand.svg`;
+const CLOSED_HAND_URL = `${import.meta.env.BASE_URL}closedhand.svg`;
 
-function useGridDemoStripOnce(active: boolean, onComplete: () => void) {
-  const [strip, setStrip] = useState<GridDragStrip>('mid');
+function useGridDemoPhaseLoop(active: boolean) {
+  const [phase, setPhase] = useState<GridDemoPhase>(DEMO_REST);
 
   useEffect(() => {
-    if (!active) return;
+    if (!active) {
+      setPhase(DEMO_REST);
+      return;
+    }
 
     let step = 0;
-    setStrip(GRID_DEMO_STRIP_SEQUENCE[0]!);
+    setPhase(GRID_DEMO_PHASE_SEQUENCE[0]!);
 
     const id = window.setInterval(() => {
-      step += 1;
-      if (step >= GRID_DEMO_STRIP_SEQUENCE.length) {
-        window.clearInterval(id);
-        onComplete();
-        return;
-      }
-      setStrip(GRID_DEMO_STRIP_SEQUENCE[step]!);
+      step = (step + 1) % GRID_DEMO_PHASE_SEQUENCE.length;
+      setPhase(GRID_DEMO_PHASE_SEQUENCE[step]!);
     }, GRID_DEMO_STEP_MS);
 
     return () => window.clearInterval(id);
-  }, [active, onComplete]);
+  }, [active]);
 
-  return strip;
+  return phase;
 }
 
-function DemoCursor({ strip }: { strip: GridDragStrip }) {
+function DemoCursor({ strip, grabbing }: { strip: GridDemoPhase['cursor']; grabbing: boolean }) {
   return (
     <span
-      className={`gridDemoCursor ${strip !== 'mid' ? 'gridDemoCursor--grabbing' : ''}`}
+      className={`gridDemoCursor ${grabbing ? 'gridDemoCursor--grabbing' : ''}`}
       data-strip={strip}
       aria-hidden="true"
     >
-      <svg className="gridDemoCursor__svg" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-        <path
-          d="M5.5 3.5L5.5 18.5L9.5 14.5L12.5 21.5L14.5 20.5L11.5 13.5L16.5 13.5Z"
-          fill="#fff"
-          stroke="#111"
-          strokeWidth="1.25"
-          strokeLinejoin="round"
-        />
-      </svg>
+      <img
+        className="gridDemoCursor__icon gridDemoCursor__icon--open"
+        src={OPEN_HAND_URL}
+        alt=""
+        draggable={false}
+      />
+      <img
+        className="gridDemoCursor__icon gridDemoCursor__icon--closed"
+        src={CLOSED_HAND_URL}
+        alt=""
+        draggable={false}
+      />
     </span>
   );
 }
@@ -80,41 +69,50 @@ function NormalATile() {
   );
 }
 
-function GridADemoActive({ onFinish }: { onFinish: () => void }) {
-  const demoStrip = useGridDemoStripOnce(true, onFinish);
+function GridADemoActive() {
+  const { cursor, image, grabbing } = useGridDemoPhaseLoop(true);
 
   return (
-    <button
-      type="button"
-      className="gridItem gridItem--demo"
-      aria-label="Letter A — drag left or right to turn the ring"
-      onPointerDown={onFinish}
-    >
+    <div className="gridItem gridItem--demo" aria-label="Letter A — drag left or right to turn the ring">
       <div className="gridDemoWrap">
-        <LetterRing letter="A" side="face" variant="grid" demoStrip={demoStrip} {...A_TILE_PRIORITY} />
-        <DemoCursor strip={demoStrip} />
+        <LetterRing letter="A" side="face" variant="grid" demoStrip={image} {...A_TILE_PRIORITY} />
+        <DemoCursor strip={cursor} grabbing={grabbing} />
       </div>
-    </button>
+    </div>
   );
 }
 
-type DemoPhase = 'waiting' | 'playing' | 'done';
+type DemoPhase = 'waiting' | 'playing';
 
-export default function GridADemoTile() {
-  const [phase, setPhase] = useState<DemoPhase>(() => (hasSeenDemo() ? 'done' : 'waiting'));
+type Props = {
+  active: boolean;
+};
 
-  const finish = useCallback(() => {
-    markDemoSeen();
-    setPhase('done');
-  }, []);
+export default function GridADemoTile({ active }: Props) {
+  const [phase, setPhase] = useState<DemoPhase>('waiting');
+  const [imagesReady, setImagesReady] = useState(false);
 
   useEffect(() => {
-    if (phase !== 'waiting') return;
+    if (!active) {
+      setPhase('waiting');
+      return;
+    }
+    let cancelled = false;
+    loadRingSides('A').then(() => {
+      if (!cancelled) setImagesReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [active]);
+
+  useEffect(() => {
+    if (!active || phase !== 'waiting' || !imagesReady) return;
     const id = window.setTimeout(() => setPhase('playing'), GRID_DEMO_DELAY_MS);
     return () => window.clearTimeout(id);
-  }, [phase]);
+  }, [active, phase, imagesReady]);
 
-  if (phase === 'done') return <NormalATile />;
+  if (!active) return <NormalATile />;
   if (phase === 'waiting') return <NormalATile />;
-  return <GridADemoActive onFinish={finish} />;
+  return <GridADemoActive />;
 }

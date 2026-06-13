@@ -153,14 +153,35 @@ body {
   filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.55));
 }
 
-.gridDemoCursor__svg {
+.gridDemoCursor--grabbing {
+  width: 32px;
+  height: 32px;
+}
+
+.gridDemoCursor__icon {
   width: 100%;
   height: 100%;
   display: block;
+  position: absolute;
+  inset: 0;
+  transition: opacity 0.2s ease-out;
+  object-fit: contain;
+}
+
+.gridDemoCursor__icon--closed {
+  opacity: 0;
+}
+
+.gridDemoCursor--grabbing .gridDemoCursor__icon--open {
+  opacity: 0;
+}
+
+.gridDemoCursor--grabbing .gridDemoCursor__icon--closed {
+  opacity: 1;
 }
 
 .gridDemoCursor[data-strip='left'] {
-  left: 20%;
+  left: 24%;
 }
 
 .gridDemoCursor[data-strip='mid'] {
@@ -168,7 +189,7 @@ body {
 }
 
 .gridDemoCursor[data-strip='right'] {
-  left: 80%;
+  left: 76%;
 }
 
 @media (max-width: 699px) {
@@ -182,7 +203,7 @@ body {
 }
 
 .gridDemoCursor--grabbing {
-  transform: translate(-20%, -15%) scale(0.9);
+  transform: translate(-35%, -20%) scale(1);
 }
 
 .ringTile--demo {
@@ -286,6 +307,7 @@ body {
 
 .ringTile--grid.ringTile--grabbing {
   cursor: grabbing;
+  touch-action: none;
 }
 
 .ringTile--grid::after {
@@ -395,6 +417,14 @@ body {
   font-size: calc(var(--kbKeySize, 56px) / 3);
   transform: scaleX(1.35);
   line-height: 1;
+}
+
+.ringTile--grid.ringTile--placeholder .ringTile__text {
+  font-size: 11px;
+  font-weight: 500;
+  transform: none;
+  letter-spacing: 0.02em;
+  text-transform: lowercase;
 }
 
 /* Keyboard view */
@@ -604,7 +634,10 @@ body {
 
 .keyboardLayout .ringTile--placeholder .ringTile__text {
   color: #b9b9b9;
+  font-size: 9px;
   transform: none;
+  letter-spacing: 0.01em;
+  text-transform: lowercase;
   font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
 }
 

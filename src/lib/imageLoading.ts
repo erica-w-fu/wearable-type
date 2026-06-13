@@ -47,3 +47,25 @@ export function prefetchRingSides(
     img.src = url;
   }
 }
+
+/** Prefetch and wait until ring sides are decoded (for demo / above-fold tiles). */
+export function loadRingSides(
+  letter: string,
+  sides: RingSide[] = ['face', 'ccw', 'cw'],
+): Promise<void> {
+  const normalized = letter.toUpperCase();
+  const loads = sides.map((side) => {
+    const url = ringImageUrl(normalized, side);
+    if (!url) return Promise.resolve();
+    prefetchRingSides(normalized, [side]);
+    return new Promise<void>((resolve) => {
+      const img = new Image();
+      const done = () => resolve();
+      img.addEventListener('load', done, { once: true });
+      img.addEventListener('error', done, { once: true });
+      img.decoding = 'async';
+      img.src = url;
+    });
+  });
+  return Promise.all(loads).then(() => undefined);
+}

@@ -1,7 +1,9 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import GridADemoTile from '../components/GridADemoTile';
 import LetterRing from '../components/LetterRing';
-import { gridImagePriority } from '../lib/imageLoading';
+import { GridTurnContext } from '../contexts/GridTurnContext';
+import { gridImagePriority, prefetchRingSides } from '../lib/imageLoading';
+import { hasSeenGridDemo, markGridDemoSeen } from '../lib/gridRotate';
 
 export type GridColumns = 1 | 2 | 4;
 
@@ -15,6 +17,22 @@ type Props = {
 
 export default function GridView({ columns }: Props) {
   const letters = useMemo(() => buildAlphabetLetters(), []);
+  const [demoActive, setDemoActive] = useState(() => !hasSeenGridDemo());
+
+  const dismissDemo = useCallback(() => {
+    setDemoActive((playing) => {
+      if (!playing) return playing;
+      markGridDemoSeen();
+      return false;
+    });
+  }, []);
+
+  useEffect(() => {
+    const aboveFoldCount = columns * 2;
+    for (let i = 0; i < aboveFoldCount && i < letters.length; i++) {
+      prefetchRingSides(letters[i]!);
+    }
+  }, [columns, letters]);
 
   const colClass =
     columns === 1
@@ -25,27 +43,29 @@ export default function GridView({ columns }: Props) {
 
   return (
     <section className="gridStage">
-      <div className={`gridContainer ${colClass}`}>
-        {letters.map((letter, index) =>
-          letter === 'A' ? (
-            <GridADemoTile key={letter} />
-          ) : (
-            <button
-              key={letter}
-              type="button"
-              className="gridItem"
-              aria-label={`Letter ${letter}`}
-            >
-              <LetterRing
-                letter={letter}
-                side="face"
-                variant="grid"
-                {...gridImagePriority(index, columns)}
-              />
-            </button>
-          ),
-        )}
-      </div>
+      <GridTurnContext.Provider value={demoActive ? dismissDemo : null}>
+        <div className={`gridContainer ${colClass}`}>
+          {letters.map((letter, index) =>
+            letter === 'A' ? (
+              <GridADemoTile key={letter} active={demoActive} />
+            ) : (
+              <button
+                key={letter}
+                type="button"
+                className="gridItem"
+                aria-label={`Letter ${letter}`}
+              >
+                <LetterRing
+                  letter={letter}
+                  side="face"
+                  variant="grid"
+                  {...gridImagePriority(index, columns)}
+                />
+              </button>
+            ),
+          )}
+        </div>
+      </GridTurnContext.Provider>
     </section>
   );
 }
